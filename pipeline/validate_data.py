@@ -126,29 +126,51 @@ def check_future_order_dates(engine) -> dict:
 
 def check_invalid_order_customer_references(engine) -> dict:
     with engine.connect() as conn:
-        invalid_count = conn.execute(
+        staging_exists = conn.execute(
             text(
                 """
-                SELECT COUNT(*)
-                FROM orders o
-                LEFT JOIN customers c ON o.customer_id = c.customer_id
-                WHERE c.customer_id IS NULL
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.tables
+                    WHERE table_schema = 'public'
+                      AND table_name = 'staging_orders'
+                )
                 """
             )
         ).scalar()
 
-    details = f"{invalid_count} orders reference a missing customer_id"
+        if not staging_exists:
+            invalid_count = 0
+            details = (
+                "No staging_orders table found; no broken order customer references detected."
+            )
+        else:
+            invalid_count = conn.execute(
+                text(
+                    """
+                    SELECT COUNT(*)
+                    FROM staging_orders o
+                    LEFT JOIN customers c ON o.customer_id = c.customer_id
+                    WHERE c.customer_id IS NULL
+                    """
+                )
+            ).scalar()
+            details = (
+                f"{invalid_count} rows in staging_orders reference a missing customer_id"
+            )
 
     if invalid_count == 0:
         status = "PASS"
         recommendation = "No action needed."
     else:
         status = "FAIL"
-        recommendation = "Repair or remove orders that point to non-existent customers."
+        recommendation = (
+            "Fix or remove invalid rows in staging_orders before loading them into orders."
+        )
 
     return _make_result(
         "invalid_order_customer_references",
-        "orders",
+        "staging_orders",
         status,
         details,
         recommendation,

@@ -80,28 +80,36 @@ def inject_future_order_dates(engine) -> None:
 
 
 def inject_broken_foreign_keys(engine) -> None:
-    """Point a sample of orders at a customer_id that does not exist."""
+    """Load orders with invalid customer_id values into staging_orders."""
     with engine.begin() as conn:
-        # Temporarily disable FK enforcement so invalid references can be inserted.
-        conn.execute(text("SET session_replication_role = 'replica'"))
-        result = conn.execute(
+        conn.execute(
             text(
                 """
-                UPDATE orders
-                SET customer_id = 999999
-                WHERE order_id IN (
-                    SELECT order_id
-                    FROM orders
-                    LIMIT 10
+                CREATE TABLE IF NOT EXISTS staging_orders (
+                    order_id INTEGER PRIMARY KEY,
+                    customer_id INTEGER NOT NULL,
+                    order_date DATE NOT NULL,
+                    status TEXT NOT NULL
                 )
                 """
             )
         )
-        conn.execute(text("SET session_replication_role = 'origin'"))
+        conn.execute(text("TRUNCATE staging_orders"))
+        result = conn.execute(
+            text(
+                """
+                INSERT INTO staging_orders (order_id, customer_id, order_date, status)
+                SELECT order_id, 999999, order_date, status
+                FROM orders
+                LIMIT 10
+                """
+            )
+        )
 
     print(
-        "Injected broken_foreign_keys: updated "
-        f"{result.rowcount} orders to use customer_id 999999 (invalid reference)."
+        "Injected broken_foreign_keys: inserted "
+        f"{result.rowcount} rows into staging_orders with customer_id 999999 "
+        "(invalid reference)."
     )
 
 
