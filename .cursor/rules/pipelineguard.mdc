@@ -1,0 +1,46 @@
+You are helping build PipelineGuard, a clean portfolio project for data engineering.
+
+Project goal:
+Build a Python/PostgreSQL data quality pipeline that generates synthetic relational data, intentionally injects data quality issues, validates the data, and produces a Markdown quality report.
+
+Keep the project simple, readable, and resume-friendly.
+
+Tech stack:
+- Python
+- PostgreSQL
+- Docker Compose
+- SQL
+- pandas
+- Faker
+
+Do not add Airflow, dbt, Spark, AWS, Kubernetes, or Snowflake unless specifically requested later.
+
+Code style:
+- Keep files small and focused.
+- Use clear function names.
+- Add comments only where helpful.
+- Avoid overengineering.
+- Do not create unnecessary abstractions.
+- Every script should be easy to explain in an interview.
+
+Database tables:
+- customers
+- products
+- orders
+- order_items
+- payments
+
+Validation checks:
+- row counts
+- null rates
+- duplicate primary keys
+- invalid foreign keys
+- negative payment amounts
+- future order dates
+- schema drift
+
+Unique feature:
+Include a data break simulator that injects realistic broken data scenarios.
+
+Output:
+Generate a Markdown quality report summarizing passed checks, warnings, failures, and recommended fixes.
