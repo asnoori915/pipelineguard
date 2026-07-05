@@ -1,37 +1,43 @@
 # PipelineGuard
 
-PipelineGuard is a data engineering portfolio project that simulates a small e-commerce data pipeline. It generates synthetic relational data, loads it into PostgreSQL, optionally injects realistic data quality issues, runs validation checks, and produces a Markdown quality report.
+PipelineGuard is a portfolio project I built to practice data quality validation with synthetic relational data in PostgreSQL.
 
-The goal is to show how I think about **data quality end to end** — not just moving data, but verifying that it is complete, consistent, and safe to use downstream.
+It generates a small e-commerce dataset, loads it into the database, optionally breaks the data on purpose, runs validation checks, and writes a Markdown report with the results.
 
 ## Why I Built This
 
-I built PipelineGuard because I wanted a hands-on project focused on **data quality**, not just ETL mechanics. In real pipelines, bad data often shows up as missing values, invalid relationships, impossible dates, or incorrect amounts. Those problems are easy to miss if you only check whether a job finished successfully.
+The idea came from working with database-oriented synthetic data workflows and noticing how much time goes into generating and loading data — but less into checking whether that data is actually usable.
 
-This project let me practice:
+I wanted a small project where I could focus on that second part: validating row counts, null values, bad dates, invalid relationships, and other common issues that show up in real datasets.
 
-- Designing a simple relational schema
-- Generating realistic synthetic data with valid foreign keys
-- Writing SQL-based validation checks
-- Building a repeatable workflow I could explain clearly in an interview
+PipelineGuard gave me a simple place to practice:
 
-It reflects my interest in data engineering and making pipelines more trustworthy before data reaches dashboards, models, or reports.
+- building a relational schema
+- generating synthetic data with valid foreign keys
+- writing SQL validation checks
+- putting the whole flow into one repeatable script
+
+It is not meant to be production infrastructure. It is a learning project that helped me get more comfortable thinking about data quality as part of the pipeline, not something you only worry about after something breaks downstream.
 
 ## Tech Stack
 
-| Layer | Tools |
-| --- | --- |
-| Language | Python |
-| Database | PostgreSQL 16 |
-| Infrastructure | Docker Compose |
-| Data generation | pandas, Faker |
-| Database access | SQLAlchemy, psycopg2 |
-| Configuration | python-dotenv |
-| Reporting | Markdown, tabulate |
+- Python
+- PostgreSQL 16
+- Docker Compose
+- SQL
+- pandas
+- Faker
+- SQLAlchemy
+- python-dotenv
+- tabulate
 
 ## Architecture
 
-PipelineGuard follows a linear workflow: generate, load, optionally break, validate, and report.
+The pipeline runs in a straight line:
+
+```text
+generate_data → load_data → break_data (optional) → validate_data → generate_report
+```
 
 ```text
 ┌─────────────────┐     ┌─────────────────┐     ┌──────────────────┐
@@ -46,58 +52,56 @@ PipelineGuard follows a linear workflow: generate, load, optionally break, valid
 └─────────────────┘     └─────────────────┘     └──────────────────┘
 ```
 
-**Pipeline modules**
-
-| Module | Purpose |
+| Module | What it does |
 | --- | --- |
 | `pipeline/config.py` | Loads database settings from `.env` |
-| `pipeline/db.py` | SQLAlchemy engine and connection helpers |
-| `pipeline/generate_data.py` | Creates clean synthetic CSV files |
+| `pipeline/db.py` | SQLAlchemy connection helpers |
+| `pipeline/generate_data.py` | Builds clean CSV files with Faker and pandas |
 | `pipeline/load_data.py` | Resets tables and loads CSVs into PostgreSQL |
 | `pipeline/break_data.py` | Injects data quality issues for testing |
-| `pipeline/validate_data.py` | Runs validation checks against the database |
+| `pipeline/validate_data.py` | Runs validation checks |
 | `pipeline/generate_report.py` | Writes `reports/quality_report.md` |
-| `pipeline/main.py` | Runs the full workflow from one command |
+| `pipeline/main.py` | Runs the full workflow |
 
 ## Database Tables
 
-The schema models a simple e-commerce store:
+The schema is a simple e-commerce model:
 
 | Table | Description |
 | --- | --- |
-| `customers` | Customer profile data including email and signup timestamp |
-| `products` | Product catalog with category and price |
+| `customers` | Customer names, email, and signup timestamp |
+| `products` | Product name, category, and price |
 | `orders` | Orders linked to customers |
 | `order_items` | Line items linked to orders and products |
 | `payments` | Payments linked to orders |
 
-Foreign keys enforce referential integrity across the main tables. For broken relationship testing, the project also uses a `staging_orders` table without constraints so invalid references can be demonstrated safely.
+The main tables use foreign keys to keep relationships valid. For broken relationship testing, the project uses a separate `staging_orders` table without constraints so invalid references can be demonstrated without modifying protected production tables.
 
 ## Data Break Simulator
 
-PipelineGuard includes a **data break simulator** that injects realistic data quality issues on purpose. This makes it possible to test whether validation checks actually catch problems.
+One thing I wanted in this project was a way to test validation, not just happy-path data.
 
-Supported issue types:
+The break simulator injects realistic issues like:
 
-| Issue | What it simulates |
+| Issue | What it does |
 | --- | --- |
-| `missing_emails` | Customer records with null email addresses |
-| `negative_payments` | Payment rows with negative amounts |
-| `future_order_dates` | Orders dated in the future |
-| `broken_foreign_keys` | Order rows in `staging_orders` that reference non-existent customers |
+| `missing_emails` | Clears email values for a sample of customers |
+| `negative_payments` | Sets payment amounts to negative values |
+| `future_order_dates` | Moves some orders into the future |
+| `broken_foreign_keys` | Loads invalid customer references into `staging_orders` |
 
-Production tables stay protected by PostgreSQL constraints. Broken foreign key examples are loaded into `staging_orders` so the pipeline can still demonstrate relationship validation without fighting database constraints.
+This made it much easier to confirm that the checks fail when they should.
 
 ## Validation Checks
 
-Each check returns a result with `PASS`, `WARNING`, or `FAIL` status, plus details and a recommendation.
+Each check returns `PASS`, `WARNING`, or `FAIL`, along with details and a recommendation.
 
-| Check | Table | What it validates |
+| Check | Table | What it looks for |
 | --- | --- | --- |
-| Row counts | all | Expected minimum row counts per table |
-| Null emails | `customers` | Customers missing email addresses |
-| Negative payment amounts | `payments` | Payments with amount less than zero |
-| Future order dates | `orders` | Orders with dates after today |
+| Row counts | all | Minimum expected rows per table |
+| Null emails | `customers` | Missing email addresses |
+| Negative payment amounts | `payments` | Payments below zero |
+| Future order dates | `orders` | Orders dated after today |
 | Invalid order customer references | `staging_orders` | Orders pointing to missing customers |
 | Invalid payment order references | `payments` | Payments pointing to missing orders |
 
@@ -109,15 +113,15 @@ Each check returns a result with `PASS`, `WARNING`, or `FAIL` status, plus detai
 docker compose up -d
 ```
 
-This starts PostgreSQL and runs the SQL files in `sql/` to create the base tables.
+This starts PostgreSQL and runs the SQL files in `sql/` to create the tables.
 
-### 2. Configure environment variables
+### 2. Set up environment variables
 
 ```bash
 cp .env.example .env
 ```
 
-### 3. Install Python dependencies
+### 3. Install dependencies
 
 ```bash
 python -m venv .venv
@@ -125,7 +129,7 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 4. Run the full pipeline
+### 4. Run the pipeline
 
 ```bash
 python -m pipeline.main
@@ -133,13 +137,13 @@ python -m pipeline.main
 
 ## Example Commands
 
-Run the full workflow with clean data:
+Clean run:
 
 ```bash
 python -m pipeline.main
 ```
 
-Run the workflow and inject a specific data quality issue:
+Run with a specific data break:
 
 ```bash
 python -m pipeline.main --break missing_emails
@@ -166,7 +170,7 @@ python -m pipeline.db
 
 ## Example Quality Report Summary
 
-After a clean run, `reports/quality_report.md` looks like this:
+After a clean run, `reports/quality_report.md` might look like this:
 
 ```markdown
 # PipelineGuard Data Quality Report
@@ -204,25 +208,24 @@ After injecting missing emails:
 
 ## What I Learned
 
-Building PipelineGuard helped me connect data generation, loading, and validation in one repeatable workflow.
+The most useful part of this project for me was connecting generation, loading, and validation in one workflow.
 
-A few takeaways:
+A few things that stood out:
 
-- **Validation should be explicit.** Finishing a load step does not mean the data is trustworthy.
-- **Referential integrity matters.** Relationship checks catch issues that row counts alone will miss.
-- **Testing bad data is useful.** The break simulator made it much easier to confirm that checks fail for the right reasons.
-- **Simple reporting goes a long way.** A Markdown summary with recommendations is easy to review and share.
+- A successful load does not automatically mean the data is valid.
+- Relationship checks matter, especially when row counts look fine.
+- It helps to deliberately break the data and confirm your checks catch the issue.
+- A simple Markdown report is enough to make results easy to review.
 
 ## Future Improvements
 
-Possible next steps for this project:
+If I continue building on this project, I would likely add:
 
-- Add duplicate primary key and schema drift checks
-- Validate order totals against payment amounts
-- Add a CLI flag to run multiple break scenarios in one execution
-- Export validation results to JSON for CI/CD pipelines
-- Schedule recurring quality checks with a lightweight orchestrator
-- Add basic unit tests for validation logic
+- duplicate primary key checks
+- schema drift detection
+- payment total vs. order item reconciliation
+- JSON export for CI use
+- basic tests around the validation logic
 
 ## Project Structure
 
@@ -249,4 +252,4 @@ pipelineguard/
 
 ---
 
-Built as a portfolio project to practice data engineering, relational modeling, and data quality validation.
+Portfolio project focused on synthetic relational data, PostgreSQL, and basic data quality validation.
