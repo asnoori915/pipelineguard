@@ -82,10 +82,11 @@ def inject_future_order_dates(engine) -> None:
 def inject_broken_foreign_keys(engine) -> None:
     """Load orders with invalid customer_id values into staging_orders."""
     with engine.begin() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS staging_orders"))
         conn.execute(
             text(
                 """
-                CREATE TABLE IF NOT EXISTS staging_orders (
+                CREATE TABLE staging_orders (
                     order_id INTEGER PRIMARY KEY,
                     customer_id INTEGER NOT NULL,
                     order_date DATE NOT NULL,
@@ -94,7 +95,6 @@ def inject_broken_foreign_keys(engine) -> None:
                 """
             )
         )
-        conn.execute(text("TRUNCATE staging_orders"))
         result = conn.execute(
             text(
                 """

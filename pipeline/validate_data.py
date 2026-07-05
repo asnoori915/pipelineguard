@@ -142,7 +142,7 @@ def check_invalid_order_customer_references(engine) -> dict:
         if not staging_exists:
             invalid_count = 0
             details = (
-                "No staging_orders table found; no broken order customer references detected."
+                "staging_orders does not exist; no staging foreign key issues found"
             )
         else:
             invalid_count = conn.execute(

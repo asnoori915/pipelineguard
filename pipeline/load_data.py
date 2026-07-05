@@ -22,6 +22,7 @@ def reset_tables(engine) -> None:
     sql = RESET_SQL.read_text()
     with engine.begin() as conn:
         conn.execute(text(sql))
+        conn.execute(text("DROP TABLE IF EXISTS staging_orders"))
 
 
 def load_csv(engine, table_name: str, csv_path: Path) -> int:
