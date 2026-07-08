@@ -9,7 +9,6 @@ model-paths:
 
 models:
   pipelineguard:
-    +schema: analytics
     staging:
       +materialized: view
     marts:
