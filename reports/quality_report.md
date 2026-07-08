@@ -1,18 +1,18 @@
 # PipelineGuard Data Quality Report
 
-**Run timestamp:** 2026-07-08 13:14:29
+**Run timestamp:** 2026-07-08 13:28:56
 
 ## Overall Status
 
-**WARNING**
+**PASS**
 
 ## Summary
 
 | Metric | Count |
 | --- | ---: |
 | Total checks | 11 |
-| Passed | 10 |
-| Warnings | 1 |
+| Passed | 11 |
+| Warnings | 0 |
 | Failed | 0 |
 
 ## Check Results
@@ -20,7 +20,7 @@
 | check_name | table | status | details | recommendation |
 | --- | --- | --- | --- | --- |
 | row_counts | all | PASS | customers: 500 (expected >= 500); products: 100 (expected >= 100); orders: 1000 (expected >= 1000); order_items: 2500 (expected >= 2500); payments: 1000 (expected >= 1000) | No action needed. |
-| schema_drift | customers | WARNING | unexpected extra columns: legacy_customer_code | Review extra columns and update validation_rules.yml if they are expected. |
+| schema_drift | customers | PASS | Schema matches required_columns. | No action needed. |
 | schema_drift | products | PASS | Schema matches required_columns. | No action needed. |
 | schema_drift | orders | PASS | Schema matches required_columns. | No action needed. |
 | schema_drift | order_items | PASS | Schema matches required_columns. | No action needed. |
@@ -33,8 +33,7 @@
 
 ## Key Findings
 
-- **schema_drift** (WARNING) on `customers`: unexpected extra columns: legacy_customer_code
-  - Recommendation: Review extra columns and update validation_rules.yml if they are expected.
+- No warnings or failures were found.
 
 ## How to Interpret This Report
 

@@ -1,0 +1,51 @@
+{
+    "path_count": 143,
+    "parsed_path_count": 143,
+    "static_analysis_path_count": 8,
+    "static_analysis_parsed_path_count": 8,
+    "is_partial_parse_enabled": true,
+    "is_static_analysis_enabled": true,
+    "read_files_elapsed": 0.019385374995181337,
+    "load_macros_elapsed": 0.32893212500493973,
+    "parse_project_elapsed": 0.1851075829763431,
+    "patch_sources_elapsed": 0.09526945801917464,
+    "process_manifest_elapsed": 0.01796458402532153,
+    "load_all_elapsed": 0.6878641250077635,
+    "projects": [
+        {
+            "project_name": "pipelineguard",
+            "elapsed": 0.18146199901821092,
+            "parsers": [
+                {
+                    "parser": "model",
+                    "elapsed": 0.12599758300348185,
+                    "parsed_path_count": 8
+                },
+                {
+                    "parser": "test",
+                    "elapsed": 0.05354770799749531,
+                    "parsed_path_count": 3
+                }
+            ],
+            "parsed_path_count": 11
+        },
+        {
+            "project_name": "dbt_postgres",
+            "elapsed": 0.0017242499743588269,
+            "parsers": [],
+            "parsed_path_count": 0
+        },
+        {
+            "project_name": "dbt",
+            "elapsed": 0.0018544579797890037,
+            "parsers": [
+                {
+                    "parser": "doc",
+                    "elapsed": 0.00011508399620652199,
+                    "parsed_path_count": 1
+                }
+            ],
+            "parsed_path_count": 1
+        }
+    ]
+}
