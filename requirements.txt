@@ -4,10 +4,5 @@ sqlalchemy
 psycopg2-binary
 python-dotenv
 tabulate
-pyyamldbt-adapters==1.24.4
-dbt-common==1.38.0
-dbt-core==1.12.0rc1
-dbt-core-experimental-parser==2.0.0a4
-dbt-extractor==0.6.0
-dbt-postgres==1.10.2
-dbt-protos==1.0.541
+pyyaml
+dbt-postgres
