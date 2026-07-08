@@ -1,11 +1,11 @@
 {
-  "run_timestamp": "2026-07-08 13:40:38",
-  "overall_status": "FAIL",
+  "run_timestamp": "2026-07-08 13:59:19",
+  "overall_status": "WARNING",
   "summary": {
     "total_checks": 11,
     "passed": 10,
-    "warnings": 0,
-    "failed": 1
+    "warnings": 1,
+    "failed": 0
   },
   "validation_results": [
     {
@@ -18,9 +18,9 @@
     {
       "check_name": "schema_drift",
       "table": "customers",
-      "status": "PASS",
-      "details": "Schema matches required_columns.",
-      "recommendation": "No action needed."
+      "status": "WARNING",
+      "details": "unexpected extra columns: legacy_customer_code",
+      "recommendation": "Review extra columns and update validation_rules.yml if they are expected."
     },
     {
       "check_name": "schema_drift",
@@ -60,9 +60,9 @@
     {
       "check_name": "negative_payment_amounts",
       "table": "payments",
-      "status": "FAIL",
-      "details": "25 rows with negative amount",
-      "recommendation": "Correct negative payment amounts or remove invalid payment records."
+      "status": "PASS",
+      "details": "0 rows with negative amount",
+      "recommendation": "No action needed."
     },
     {
       "check_name": "future_order_dates",
