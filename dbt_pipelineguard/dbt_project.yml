@@ -1,0 +1,16 @@
+name: pipelineguard
+version: 1.0.0
+config-version: 2
+
+profile: pipelineguard
+
+model-paths:
+  - models
+
+models:
+  pipelineguard:
+    +schema: analytics
+    staging:
+      +materialized: view
+    marts:
+      +materialized: table
