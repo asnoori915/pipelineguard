@@ -18,11 +18,14 @@ TABLES = [
 
 
 def reset_tables(engine) -> None:
-    """Clear all pipeline tables before loading fresh data."""
+    """Clear pipeline tables and remove break simulator artifacts before loading."""
     sql = RESET_SQL.read_text()
     with engine.begin() as conn:
         conn.execute(text(sql))
         conn.execute(text("DROP TABLE IF EXISTS staging_orders"))
+        conn.execute(
+            text("ALTER TABLE customers DROP COLUMN IF EXISTS legacy_customer_code")
+        )
 
 
 def load_csv(engine, table_name: str, csv_path: Path) -> int:
@@ -36,7 +39,7 @@ def main() -> None:
     engine = get_engine()
 
     reset_tables(engine)
-    print("Reset existing tables.")
+    print("Reset existing tables and removed simulator artifacts.")
 
     for table_name, filename in TABLES:
         csv_path = DATA_DIR / filename
