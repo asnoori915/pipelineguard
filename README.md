@@ -87,17 +87,24 @@ This is a learning project, not production tooling. It gave me a concrete way to
 generate_data → load_data → break_data (optional) → validate_data → audit → generate_report → dbt (optional)
 ```
 
-```text
-┌─────────────────┐     ┌─────────────────┐     ┌──────────────────┐
-│  generate_data  │────▶│   load_data     │────▶│   break_data     │
-│  (CSV files)    │     │  (PostgreSQL)   │     │    (optional)    │
-└─────────────────┘     └─────────────────┘     └──────────────────┘
-                                                          │
-                                                          ▼
-┌─────────────────┐     ┌─────────────────┐     ┌──────────────────┐
-│ generate_report │◀────│     audit       │◀────│ validate_data    │
-│ (MD + JSON)     │     │ (PostgreSQL)    │     │  (SQL + YAML)    │
-└─────────────────┘     └─────────────────┘     └──────────────────┘
+```mermaid
+flowchart TD
+    gen[Synthetic Data Generator] --> csv[CSV Files]
+    csv --> load[PostgreSQL Loader]
+    load --> raw[(PostgreSQL Raw Tables)]
+
+    break[Data Break Simulator] -. optional .-> raw
+
+    raw --> validate[Python Validation Engine]
+    validate --> reports[Quality Reports]
+    validate --> audit[(PostgreSQL Audit Tables)]
+
+    reports --> md[quality_report.md]
+    reports --> json[quality_report.json]
+
+    raw --> stg[dbt Staging Models]
+    stg --> marts[dbt Mart Models]
+    marts --> tests[dbt Tests]
 ```
 
 Validation rules are loaded from `config/validation_rules.yml` at runtime.
