@@ -1,0 +1,70 @@
+version: 2
+
+models:
+  - name: fact_orders
+    description: One row per order with order totals and payment details.
+    columns:
+      - name: order_id
+        description: Primary key for the order.
+        tests:
+          - not_null
+          - unique
+      - name: customer_id
+        description: Customer who placed the order.
+        tests:
+          - not_null
+      - name: order_date
+        description: Date the order was placed.
+      - name: status
+        description: Current order status.
+      - name: total_order_amount
+        description: Sum of line item totals for the order.
+      - name: payment_amount
+        description: Total payment amount linked to the order, if available.
+      - name: payment_status
+        description: Payment status linked to the order, if available.
+
+  - name: customer_order_summary
+    description: One row per customer with order counts and spend totals.
+    columns:
+      - name: customer_id
+        description: Primary key for the customer.
+        tests:
+          - not_null
+          - unique
+      - name: customer_name
+        description: Customer first and last name combined.
+      - name: email
+        description: Customer email address.
+      - name: total_orders
+        description: Number of orders placed by the customer.
+      - name: total_spent
+        description: Total amount spent across all customer orders.
+      - name: first_order_date
+        description: Date of the customer's first order.
+      - name: most_recent_order_date
+        description: Date of the customer's most recent order.
+
+  - name: payment_quality_summary
+    description: Summary metrics for payment quality across all payment records.
+    columns:
+      - name: total_payments
+        description: Total number of payment records.
+        tests:
+          - not_null
+      - name: negative_payment_count
+        description: Number of payments with negative amounts.
+        tests:
+          - not_null
+      - name: total_payment_amount
+        description: Sum of all payment amounts.
+        tests:
+          - not_null
+      - name: failed_payment_count
+        description: Number of payments with failed status.
+        tests:
+          - not_null
+      - name: pending_payment_count
+        description: Number of payments with pending status.
+        tests:
+          - not_null
