@@ -19,6 +19,37 @@ Recent additions include:
 - automatic saving of validation results on every pipeline run
 - a dbt analytics layer with staging models, marts, and tests
 
+## Quick Demo
+
+After starting PostgreSQL and installing dependencies, this is a good command to see the full project in action:
+
+```bash
+python -m pipeline.main --break negative_payments --run-dbt
+```
+
+What happens:
+
+1. PipelineGuard generates clean synthetic data and loads it into PostgreSQL
+2. The break simulator injects negative payment amounts
+3. Python validation catches the issue and marks the run as **FAIL**
+4. Reports and audit records are saved
+5. dbt builds staging and mart models, then runs dbt tests
+
+Expected result summary:
+
+- `negative_payment_amounts` fails validation
+- overall status is **FAIL**
+- `payment_quality_summary` in dbt shows negative payments in the analytics layer
+- dbt tests still help confirm keys, relationships, and model structure
+
+Generated outputs:
+
+- `reports/quality_report.md` — human-readable summary
+- `reports/quality_report.json` — machine-readable validation results
+- PostgreSQL audit tables — `quality_runs` and `quality_check_results`
+
+The Python layer catches bad data before you trust it. The dbt layer then transforms the same database into analytics-ready models and adds another round of testing.
+
 ## Why I Built This
 
 The idea came from working with database-oriented synthetic data workflows and wanting to understand data quality validation more directly.
