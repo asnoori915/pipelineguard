@@ -3,55 +3,95 @@ from pathlib import Path
 
 from pipeline.validate_data import run_all_checks
 
-PROJECT_NAME = "PipelineGuard"
+REPORT_TITLE = "PipelineGuard Data Quality Report"
 REPORT_PATH = Path("reports/quality_report.md")
 
 
+def _escape_table_cell(value: str) -> str:
+    """Keep Markdown table rows readable when details contain pipe characters."""
+    return value.replace("|", "/")
+
+
+def _overall_status(passed: int, warnings: int, failed: int) -> str:
+    if failed > 0:
+        return "FAIL"
+    if warnings > 0:
+        return "WARNING"
+    return "PASS"
+
+
 def build_report(results: list[dict], run_timestamp: str) -> str:
+    total_checks = len(results)
     passed = sum(1 for result in results if result["status"] == "PASS")
     warnings = sum(1 for result in results if result["status"] == "WARNING")
     failed = sum(1 for result in results if result["status"] == "FAIL")
+    overall_status = _overall_status(passed, warnings, failed)
 
     lines = [
-        f"# {PROJECT_NAME} Data Quality Report",
+        f"# {REPORT_TITLE}",
         "",
         f"**Run timestamp:** {run_timestamp}",
         "",
+        "## Overall Status",
+        "",
+        f"**{overall_status}**",
+        "",
         "## Summary",
         "",
-        "| Status | Count |",
+        "| Metric | Count |",
         "| --- | ---: |",
-        f"| PASS | {passed} |",
-        f"| WARNING | {warnings} |",
-        f"| FAIL | {failed} |",
+        f"| Total checks | {total_checks} |",
+        f"| Passed | {passed} |",
+        f"| Warnings | {warnings} |",
+        f"| Failed | {failed} |",
         "",
-        "## Detailed Check Results",
+        "## Check Results",
         "",
-        "| Check | Table | Status | Details |",
-        "| --- | --- | --- | --- |",
+        "| check_name | table | status | details | recommendation |",
+        "| --- | --- | --- | --- | --- |",
     ]
 
     for result in results:
         lines.append(
-            f"| {result['check_name']} | {result['table']} | "
-            f"{result['status']} | {result['details']} |"
+            "| {check_name} | {table} | {status} | {details} | {recommendation} |".format(
+                check_name=_escape_table_cell(result["check_name"]),
+                table=_escape_table_cell(result["table"]),
+                status=_escape_table_cell(result["status"]),
+                details=_escape_table_cell(result["details"]),
+                recommendation=_escape_table_cell(result["recommendation"]),
+            )
         )
 
-    lines.extend(["", "## Recommendations", ""])
+    lines.extend(["", "## Key Findings", ""])
 
-    actionable_results = [
-        result for result in results if result["status"] != "PASS"
+    findings = [
+        result for result in results if result["status"] in ("WARNING", "FAIL")
     ]
-    if actionable_results:
-        for result in actionable_results:
+    if findings:
+        for result in findings:
             lines.append(
-                f"- **{result['check_name']}** ({result['status']}): "
-                f"{result['recommendation']}"
+                f"- **{result['check_name']}** ({result['status']}) on "
+                f"`{result['table']}`: {result['details']}"
             )
+            lines.append(f"  - Recommendation: {result['recommendation']}")
     else:
-        lines.append("- All checks passed. No action needed.")
+        lines.append("- No warnings or failures were found.")
 
-    lines.append("")
+    lines.extend(
+        [
+            "",
+            "## How to Interpret This Report",
+            "",
+            "- **Overall Status** reflects the worst result in the run.",
+            "- **PASS** means every check passed.",
+            "- **WARNING** means at least one check needs review, but no checks failed.",
+            "- **FAIL** means at least one check found a data quality issue that should be fixed.",
+            "- Use **Check Results** to review every validation rule.",
+            "- Use **Key Findings** to focus on the checks that need attention.",
+            "",
+        ]
+    )
+
     return "\n".join(lines)
 
 
