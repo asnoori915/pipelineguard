@@ -1,0 +1,73 @@
+project:
+  name: PipelineGuard
+  description: Data quality validation rules for synthetic relational data.
+
+tables:
+  customers:
+    min_rows: 500
+    primary_key: customer_id
+    required_columns:
+      - customer_id
+      - first_name
+      - last_name
+      - email
+      - created_at
+    checks:
+      null_thresholds:
+        email: 0.05
+
+  products:
+    min_rows: 100
+    primary_key: product_id
+    required_columns:
+      - product_id
+      - product_name
+      - category
+      - price
+
+  orders:
+    min_rows: 1000
+    primary_key: order_id
+    required_columns:
+      - order_id
+      - customer_id
+      - order_date
+      - status
+    foreign_keys:
+      customer_id:
+        references_table: customers
+        references_column: customer_id
+
+  order_items:
+    min_rows: 2500
+    primary_key: order_item_id
+    required_columns:
+      - order_item_id
+      - order_id
+      - product_id
+      - quantity
+      - unit_price
+    foreign_keys:
+      order_id:
+        references_table: orders
+        references_column: order_id
+      product_id:
+        references_table: products
+        references_column: product_id
+
+  payments:
+    min_rows: 1000
+    primary_key: payment_id
+    required_columns:
+      - payment_id
+      - order_id
+      - amount
+      - payment_status
+      - paid_at
+    foreign_keys:
+      order_id:
+        references_table: orders
+        references_column: order_id
+    checks:
+      non_negative:
+        - amount
