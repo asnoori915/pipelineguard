@@ -1,0 +1,64 @@
+version: 2
+
+sources:
+  - name: raw
+    schema: public
+    tables:
+      - name: customers
+        columns:
+          - name: customer_id
+            tests:
+              - not_null
+              - unique
+
+      - name: products
+        columns:
+          - name: product_id
+            tests:
+              - not_null
+              - unique
+
+      - name: orders
+        columns:
+          - name: order_id
+            tests:
+              - not_null
+              - unique
+          - name: customer_id
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw', 'customers')
+                  field: customer_id
+
+      - name: order_items
+        columns:
+          - name: order_item_id
+            tests:
+              - not_null
+              - unique
+          - name: order_id
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw', 'orders')
+                  field: order_id
+          - name: product_id
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw', 'products')
+                  field: product_id
+
+      - name: payments
+        columns:
+          - name: payment_id
+            tests:
+              - not_null
+              - unique
+          - name: order_id
+            tests:
+              - not_null
+              - relationships:
+                  to: source('raw', 'orders')
+                  field: order_id
