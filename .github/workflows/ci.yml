@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    env:
+      POSTGRES_DB: pipelineguard
+      POSTGRES_USER: pipelineguard_user
+      POSTGRES_PASSWORD: pipelineguard_pass
+      POSTGRES_HOST: localhost
+      POSTGRES_PORT: 5432
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: pipelineguard
+          POSTGRES_USER: pipelineguard_user
+          POSTGRES_PASSWORD: pipelineguard_pass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Create database tables
+        run: |
+          PGPASSWORD=$POSTGRES_PASSWORD psql \
+            -h $POSTGRES_HOST \
+            -p $POSTGRES_PORT \
+            -U $POSTGRES_USER \
+            -d $POSTGRES_DB \
+            -f sql/01_create_tables.sql
+
+      - name: Run pipeline checks
+        run: |
+          python -m pipeline.generate_data
+          python -m pipeline.load_data
+          python -m pipeline.validate_data
+
+      - name: Run dbt parse
+        run: |
+          if command -v dbt >/dev/null 2>&1; then
+            mkdir -p ~/.dbt
+            {
+              echo "pipelineguard:"
+              echo "  target: dev"
+              echo "  outputs:"
+              echo "    dev:"
+              echo "      type: postgres"
+              echo "      host: ${POSTGRES_HOST}"
+              echo "      user: ${POSTGRES_USER}"
+              echo "      password: ${POSTGRES_PASSWORD}"
+              echo "      port: ${POSTGRES_PORT}"
+              echo "      dbname: ${POSTGRES_DB}"
+              echo "      schema: analytics"
+              echo "      threads: 1"
+            } > ~/.dbt/profiles.yml
+            cd dbt_pipelineguard
+            dbt parse
+          else
+            echo "dbt not available, skipping dbt parse"
+          fi
