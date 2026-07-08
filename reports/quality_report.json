@@ -1,0 +1,89 @@
+{
+  "run_timestamp": "2026-07-08 13:14:29",
+  "overall_status": "WARNING",
+  "summary": {
+    "total_checks": 11,
+    "passed": 10,
+    "warnings": 1,
+    "failed": 0
+  },
+  "validation_results": [
+    {
+      "check_name": "row_counts",
+      "table": "all",
+      "status": "PASS",
+      "details": "customers: 500 (expected >= 500); products: 100 (expected >= 100); orders: 1000 (expected >= 1000); order_items: 2500 (expected >= 2500); payments: 1000 (expected >= 1000)",
+      "recommendation": "No action needed."
+    },
+    {
+      "check_name": "schema_drift",
+      "table": "customers",
+      "status": "WARNING",
+      "details": "unexpected extra columns: legacy_customer_code",
+      "recommendation": "Review extra columns and update validation_rules.yml if they are expected."
+    },
+    {
+      "check_name": "schema_drift",
+      "table": "products",
+      "status": "PASS",
+      "details": "Schema matches required_columns.",
+      "recommendation": "No action needed."
+    },
+    {
+      "check_name": "schema_drift",
+      "table": "orders",
+      "status": "PASS",
+      "details": "Schema matches required_columns.",
+      "recommendation": "No action needed."
+    },
+    {
+      "check_name": "schema_drift",
+      "table": "order_items",
+      "status": "PASS",
+      "details": "Schema matches required_columns.",
+      "recommendation": "No action needed."
+    },
+    {
+      "check_name": "schema_drift",
+      "table": "payments",
+      "status": "PASS",
+      "details": "Schema matches required_columns.",
+      "recommendation": "No action needed."
+    },
+    {
+      "check_name": "null_emails",
+      "table": "customers",
+      "status": "PASS",
+      "details": "0 of 500 customers (0.0%) have null email; allowed threshold is 5.0%",
+      "recommendation": "No action needed."
+    },
+    {
+      "check_name": "negative_payment_amounts",
+      "table": "payments",
+      "status": "PASS",
+      "details": "0 rows with negative amount",
+      "recommendation": "No action needed."
+    },
+    {
+      "check_name": "future_order_dates",
+      "table": "orders",
+      "status": "PASS",
+      "details": "0 orders have a future order_date",
+      "recommendation": "No action needed."
+    },
+    {
+      "check_name": "invalid_order_customer_references",
+      "table": "staging_orders",
+      "status": "PASS",
+      "details": "staging_orders does not exist; no staging foreign key issues found",
+      "recommendation": "No action needed."
+    },
+    {
+      "check_name": "invalid_payment_order_references",
+      "table": "payments",
+      "status": "PASS",
+      "details": "0 payments reference a missing order_id",
+      "recommendation": "No action needed."
+    }
+  ]
+}
