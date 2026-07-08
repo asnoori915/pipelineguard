@@ -1,10 +1,10 @@
 # PipelineGuard Data Quality Report
 
-**Run timestamp:** 2026-07-08 13:09:15
+**Run timestamp:** 2026-07-08 13:13:02
 
 ## Overall Status
 
-**WARNING**
+**FAIL**
 
 ## Summary
 
@@ -12,29 +12,29 @@
 | --- | ---: |
 | Total checks | 11 |
 | Passed | 10 |
-| Warnings | 1 |
-| Failed | 0 |
+| Warnings | 0 |
+| Failed | 1 |
 
 ## Check Results
 
 | check_name | table | status | details | recommendation |
 | --- | --- | --- | --- | --- |
 | row_counts | all | PASS | customers: 500 (expected >= 500); products: 100 (expected >= 100); orders: 1000 (expected >= 1000); order_items: 2500 (expected >= 2500); payments: 1000 (expected >= 1000) | No action needed. |
-| schema_drift | customers | WARNING | unexpected extra columns: legacy_customer_code | Review extra columns and update validation_rules.yml if they are expected. |
+| schema_drift | customers | PASS | Schema matches required_columns. | No action needed. |
 | schema_drift | products | PASS | Schema matches required_columns. | No action needed. |
 | schema_drift | orders | PASS | Schema matches required_columns. | No action needed. |
 | schema_drift | order_items | PASS | Schema matches required_columns. | No action needed. |
 | schema_drift | payments | PASS | Schema matches required_columns. | No action needed. |
 | null_emails | customers | PASS | 0 of 500 customers (0.0%) have null email; allowed threshold is 5.0% | No action needed. |
-| negative_payment_amounts | payments | PASS | 0 rows with negative amount | No action needed. |
+| negative_payment_amounts | payments | FAIL | 25 rows with negative amount | Correct negative payment amounts or remove invalid payment records. |
 | future_order_dates | orders | PASS | 0 orders have a future order_date | No action needed. |
 | invalid_order_customer_references | staging_orders | PASS | staging_orders does not exist; no staging foreign key issues found | No action needed. |
 | invalid_payment_order_references | payments | PASS | 0 payments reference a missing order_id | No action needed. |
 
 ## Key Findings
 
-- **schema_drift** (WARNING) on `customers`: unexpected extra columns: legacy_customer_code
-  - Recommendation: Review extra columns and update validation_rules.yml if they are expected.
+- **negative_payment_amounts** (FAIL) on `payments`: 25 rows with negative amount
+  - Recommendation: Correct negative payment amounts or remove invalid payment records.
 
 ## How to Interpret This Report
 

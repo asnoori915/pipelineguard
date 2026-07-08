@@ -1,5 +1,6 @@
 import argparse
 
+from pipeline.audit import save_quality_run
 from pipeline.break_data import ISSUE_CHOICES, ISSUE_HANDLERS
 from pipeline.db import get_engine
 from pipeline.generate_data import main as generate_data
@@ -43,6 +44,8 @@ def main() -> None:
     print("Step 4/5: Validating data...")
     results = run_all_checks()
     print_results(results)
+    run_id = save_quality_run(results, break_type=args.break_issue)
+    print(f"Saved quality run: {run_id}")
     print()
 
     print("Step 5/5: Generating Markdown quality report...")
