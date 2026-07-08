@@ -16,7 +16,11 @@ def main() -> None:
         "--break",
         dest="break_issue",
         choices=ISSUE_CHOICES,
-        help="Optionally inject a data quality issue before validation.",
+        help=(
+            "Optionally inject a data quality issue before validation. "
+            "Supported values: missing_emails, negative_payments, "
+            "future_order_dates, broken_foreign_keys, schema_drift."
+        ),
     )
     args = parser.parse_args()
 

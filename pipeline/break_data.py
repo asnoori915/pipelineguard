@@ -9,6 +9,7 @@ ISSUE_CHOICES = [
     "negative_payments",
     "future_order_dates",
     "broken_foreign_keys",
+    "schema_drift",
 ]
 
 
@@ -113,11 +114,29 @@ def inject_broken_foreign_keys(engine) -> None:
     )
 
 
+def inject_schema_drift(engine) -> None:
+    """Add an unexpected column to the customers table."""
+    with engine.begin() as conn:
+        conn.execute(
+            text(
+                """
+                ALTER TABLE customers
+                ADD COLUMN IF NOT EXISTS legacy_customer_code TEXT
+                """
+            )
+        )
+
+    print(
+        "Injected schema_drift: added unexpected column legacy_customer_code to customers."
+    )
+
+
 ISSUE_HANDLERS = {
     "missing_emails": inject_missing_emails,
     "negative_payments": inject_negative_payments,
     "future_order_dates": inject_future_order_dates,
     "broken_foreign_keys": inject_broken_foreign_keys,
+    "schema_drift": inject_schema_drift,
 }
 
 
@@ -129,7 +148,11 @@ def main() -> None:
         "--issue",
         required=True,
         choices=ISSUE_CHOICES,
-        help="Type of data quality issue to inject.",
+        help=(
+            "Type of data quality issue to inject. "
+            "Supported values: missing_emails, negative_payments, "
+            "future_order_dates, broken_foreign_keys, schema_drift."
+        ),
     )
     args = parser.parse_args()
 

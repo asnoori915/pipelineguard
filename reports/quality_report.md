@@ -1,13 +1,13 @@
 # PipelineGuard Data Quality Report
 
-**Run timestamp:** 2026-07-08 12:57:56
+**Run timestamp:** 2026-07-08 12:58:41
 
 ## Summary
 
 | Status | Count |
 | --- | ---: |
-| PASS | 11 |
-| WARNING | 0 |
+| PASS | 10 |
+| WARNING | 1 |
 | FAIL | 0 |
 
 ## Detailed Check Results
@@ -15,7 +15,7 @@
 | Check | Table | Status | Details |
 | --- | --- | --- | --- |
 | row_counts | all | PASS | customers: 500 (expected >= 500); products: 100 (expected >= 100); orders: 1000 (expected >= 1000); order_items: 2500 (expected >= 2500); payments: 1000 (expected >= 1000) |
-| schema_drift | customers | PASS | Schema matches required_columns. |
+| schema_drift | customers | WARNING | unexpected extra columns: legacy_customer_code |
 | schema_drift | products | PASS | Schema matches required_columns. |
 | schema_drift | orders | PASS | Schema matches required_columns. |
 | schema_drift | order_items | PASS | Schema matches required_columns. |
@@ -28,4 +28,4 @@
 
 ## Recommendations
 
-- All checks passed. No action needed.
+- **schema_drift** (WARNING): Review extra columns and update validation_rules.yml if they are expected.
