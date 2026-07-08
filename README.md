@@ -1,5 +1,7 @@
 # PipelineGuard
 
+[![CI](https://github.com/asnoori915/pipelineguard/actions/workflows/ci.yml/badge.svg)](https://github.com/asnoori915/pipelineguard/actions/workflows/ci.yml)
+
 PipelineGuard is a portfolio project I built to practice data quality validation with synthetic relational data in PostgreSQL.
 
 It generates a small e-commerce dataset, loads it into the database, optionally breaks the data on purpose, runs validation checks, saves run history to PostgreSQL, and writes both Markdown and JSON reports.
