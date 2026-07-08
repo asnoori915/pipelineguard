@@ -20,6 +20,7 @@ Recent additions include:
 - JSON report output alongside Markdown
 - automatic saving of validation results on every pipeline run
 - a dbt analytics layer with staging models, marts, and tests
+- a Streamlit dashboard for viewing quality run history
 
 ## Quick Demo
 
@@ -82,6 +83,7 @@ This is a learning project, not production tooling. It gave me a concrete way to
 - python-dotenv
 - tabulate
 - dbt Core
+- Streamlit
 
 ## Architecture Flow
 
@@ -467,6 +469,28 @@ When you run `python -m pipeline.main`, the saved run ID is printed in the termi
 Saved quality run: 3f1c8b2a-...
 ```
 
+## Streamlit Dashboard
+
+PipelineGuard includes a simple Streamlit dashboard for exploring validation history without writing SQL.
+
+It reads from the PostgreSQL audit tables (`quality_runs` and `quality_check_results`) and visualizes recent quality runs and validation results.
+
+The dashboard shows:
+
+- latest run summary (run ID, timestamp, break type, overall status, check counts)
+- passed, warning, and failed metrics
+- the 10 most recent runs
+- check results for a selected run
+- a bar chart of PASS / WARNING / FAIL counts for the latest run
+
+Run it after at least one pipeline run:
+
+```bash
+streamlit run dashboard/app.py
+```
+
+Make sure PostgreSQL is running and your `.env` database settings are configured. The dashboard uses the same connection settings as the Python pipeline through `pipeline/config.py` and `pipeline/db.py`.
+
 ## How to Run the Project
 
 ### 1. Start PostgreSQL
@@ -540,6 +564,12 @@ Test the database connection:
 python -m pipeline.db
 ```
 
+Launch the Streamlit dashboard:
+
+```bash
+streamlit run dashboard/app.py
+```
+
 ## What I Learned
 
 Building run history into the project helped me think about validation as something worth tracking over time, not just checking once per run.
@@ -591,6 +621,8 @@ pipelineguard/
 │   ├── 02_reset_tables.sql
 │   └── 03_create_quality_audit_tables.sql
 ├── data/generated/
+├── dashboard/
+│   └── app.py
 ├── reports/
 ├── docs/
 ├── docker-compose.yml
@@ -600,4 +632,4 @@ pipelineguard/
 
 ---
 
-Portfolio project focused on synthetic relational data, PostgreSQL, data quality validation, and a small dbt analytics layer.
+Portfolio project focused on synthetic relational data, PostgreSQL, data quality validation, a small dbt analytics layer, and a Streamlit dashboard.
