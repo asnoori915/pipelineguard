@@ -1,23 +1,32 @@
-# PipelineGuard
+# PipelineGuard V2
 
 PipelineGuard is a portfolio project I built to practice data quality validation with synthetic relational data in PostgreSQL.
 
-It generates a small e-commerce dataset, loads it into the database, optionally breaks the data on purpose, runs validation checks, and writes a Markdown report with the results.
+Version 2 adds config-driven validation rules, schema drift detection, and a clearer quality report. The core idea is the same: generate data, load it, optionally break it on purpose, validate it, and review the results.
+
+## Project Overview
+
+PipelineGuard simulates a small e-commerce data pipeline with five related tables. It generates clean synthetic CSV files, loads them into PostgreSQL, runs validation checks, and writes a Markdown report.
+
+What makes V2 different is that many validation rules live in a YAML config file instead of being hardcoded. That makes the checks easier to adjust and easier to explain.
+
+The project also includes a data break simulator so I can inject common data quality issues and confirm the validation layer catches them.
 
 ## Why I Built This
 
-The idea came from working with database-oriented synthetic data workflows and noticing how much time goes into generating and loading data — but less into checking whether that data is actually usable.
+The idea came from working with database-oriented synthetic data workflows and wanting to understand data quality validation more directly.
 
-I wanted a small project where I could focus on that second part: validating row counts, null values, bad dates, invalid relationships, and other common issues that show up in real datasets.
+Generating and loading data is only part of the job. I also wanted practice checking whether the data is complete, consistent, and structurally correct before anything downstream depends on it.
 
-PipelineGuard gave me a simple place to practice:
+PipelineGuard V2 helped me work on:
 
-- building a relational schema
-- generating synthetic data with valid foreign keys
-- writing SQL validation checks
-- putting the whole flow into one repeatable script
+- relational schema design
+- synthetic data generation with valid foreign keys
+- SQL-based validation checks
+- config-driven rules
+- simple reporting for data quality results
 
-It is not meant to be production infrastructure. It is a learning project that helped me get more comfortable thinking about data quality as part of the pipeline, not something you only worry about after something breaks downstream.
+This is a learning project, not production tooling. It gave me a concrete way to think about validation as part of the pipeline itself.
 
 ## Tech Stack
 
@@ -28,12 +37,11 @@ It is not meant to be production infrastructure. It is a learning project that h
 - pandas
 - Faker
 - SQLAlchemy
+- PyYAML
 - python-dotenv
 - tabulate
 
-## Architecture
-
-The pipeline runs in a straight line:
+## Architecture Flow
 
 ```text
 generate_data → load_data → break_data (optional) → validate_data → generate_report
@@ -48,9 +56,11 @@ generate_data → load_data → break_data (optional) → validate_data → gene
                                                           ▼
 ┌─────────────────┐     ┌─────────────────┐     ┌──────────────────┐
 │ generate_report │◀────│ validate_data   │◀────│   PostgreSQL     │
-│ (Markdown)      │     │  (SQL checks)   │     │                  │
+│ (Markdown)      │     │  (SQL + YAML)   │     │                  │
 └─────────────────┘     └─────────────────┘     └──────────────────┘
 ```
+
+Validation rules are loaded from `config/validation_rules.yml` at runtime.
 
 | Module | What it does |
 | --- | --- |
@@ -59,7 +69,7 @@ generate_data → load_data → break_data (optional) → validate_data → gene
 | `pipeline/generate_data.py` | Builds clean CSV files with Faker and pandas |
 | `pipeline/load_data.py` | Resets tables and loads CSVs into PostgreSQL |
 | `pipeline/break_data.py` | Injects data quality issues for testing |
-| `pipeline/validate_data.py` | Runs validation checks |
+| `pipeline/validate_data.py` | Runs config-driven validation checks |
 | `pipeline/generate_report.py` | Writes `reports/quality_report.md` |
 | `pipeline/main.py` | Runs the full workflow |
 
@@ -75,35 +85,104 @@ The schema is a simple e-commerce model:
 | `order_items` | Line items linked to orders and products |
 | `payments` | Payments linked to orders |
 
-The main tables use foreign keys to keep relationships valid. For broken relationship testing, the project uses a separate `staging_orders` table without constraints so invalid references can be demonstrated without modifying protected production tables.
+The main tables use foreign keys to keep relationships valid.
+
+For broken relationship testing, the project uses a separate `staging_orders` table without constraints. That lets the pipeline demonstrate invalid references without modifying protected production tables.
 
 ## Data Break Simulator
 
-One thing I wanted in this project was a way to test validation, not just happy-path data.
+The break simulator injects realistic issues so validation can be tested beyond the happy path.
 
-The break simulator injects realistic issues like:
+Supported break types:
 
-| Issue | What it does |
+| Break type | What it does |
 | --- | --- |
 | `missing_emails` | Clears email values for a sample of customers |
 | `negative_payments` | Sets payment amounts to negative values |
 | `future_order_dates` | Moves some orders into the future |
 | `broken_foreign_keys` | Loads invalid customer references into `staging_orders` |
+| `schema_drift` | Adds an unexpected column to the `customers` table |
 
-This made it much easier to confirm that the checks fail when they should.
+Each pipeline run starts clean. The loader resets the main tables and drops `staging_orders` if it exists from a previous broken foreign key test.
+
+## Config-Driven Validation Rules
+
+Validation rules are defined in `config/validation_rules.yml`.
+
+That file is the source of truth for:
+
+- expected table names
+- minimum row counts
+- primary keys
+- required columns
+- null thresholds
+- non-negative numeric checks
+- foreign key checks where reasonable
+
+Example rule areas in the YAML file:
+
+- `min_rows` for row count checks
+- `required_columns` for schema validation
+- `checks.null_thresholds` for null rate limits
+- `checks.non_negative` for numeric validation
+- `foreign_keys` for relationship checks
+
+This keeps the validation logic readable and makes it easier to extend the project without rewriting Python for every rule change.
+
+## Schema Drift Detection
+
+PipelineGuard V2 compares the actual PostgreSQL columns for each configured table against the `required_columns` listed in `config/validation_rules.yml`.
+
+For each table, the schema drift check returns:
+
+- **PASS** if the schema matches exactly
+- **WARNING** if there are unexpected extra columns
+- **FAIL** if required columns are missing
+
+This is useful for catching cases where a table changed over time but the pipeline rules did not.
+
+You can trigger it intentionally with:
+
+```bash
+python -m pipeline.main --break schema_drift
+```
+
+That adds an unexpected column such as `legacy_customer_code` to `customers`, which validation reports as schema drift.
 
 ## Validation Checks
 
 Each check returns `PASS`, `WARNING`, or `FAIL`, along with details and a recommendation.
 
-| Check | Table | What it looks for |
-| --- | --- | --- |
-| Row counts | all | Minimum expected rows per table |
-| Null emails | `customers` | Missing email addresses |
-| Negative payment amounts | `payments` | Payments below zero |
-| Future order dates | `orders` | Orders dated after today |
-| Invalid order customer references | `staging_orders` | Orders pointing to missing customers |
-| Invalid payment order references | `payments` | Payments pointing to missing orders |
+Current checks include:
+
+| Check | What it looks for |
+| --- | --- |
+| Row counts | Minimum expected rows per configured table |
+| Schema drift | Missing or extra columns vs. `required_columns` |
+| Null emails | Customer email null rate above configured threshold |
+| Negative payment amounts | Negative values in configured numeric columns |
+| Future order dates | Orders dated after today |
+| Invalid order customer references | Broken customer references in `staging_orders` |
+| Invalid payment order references | Payments pointing to missing orders |
+
+## Quality Report Output
+
+The report is written to `reports/quality_report.md`.
+
+It includes:
+
+- title and run timestamp
+- overall status (`PASS`, `WARNING`, or `FAIL`)
+- summary counts for total checks, passed, warnings, and failed
+- a full table of check results
+- a **Key Findings** section for warnings and failures only
+- a short **How to Interpret This Report** section
+
+Example overall statuses:
+
+- **PASS** if there are no warnings or failures
+- **WARNING** if there are warnings but no failures
+- **FAIL** if one or more checks failed
 
 ## How to Run the Project
 
@@ -150,6 +229,7 @@ python -m pipeline.main --break missing_emails
 python -m pipeline.main --break negative_payments
 python -m pipeline.main --break future_order_dates
 python -m pipeline.main --break broken_foreign_keys
+python -m pipeline.main --break schema_drift
 ```
 
 Run individual steps:
@@ -157,7 +237,7 @@ Run individual steps:
 ```bash
 python -m pipeline.generate_data
 python -m pipeline.load_data
-python -m pipeline.break_data --issue negative_payments
+python -m pipeline.break_data --issue schema_drift
 python -m pipeline.validate_data
 python -m pipeline.generate_report
 ```
@@ -168,69 +248,33 @@ Test the database connection:
 python -m pipeline.db
 ```
 
-## Example Quality Report Summary
-
-After a clean run, `reports/quality_report.md` might look like this:
-
-```markdown
-# PipelineGuard Data Quality Report
-
-**Run timestamp:** 2026-07-05 12:00:00
-
-## Summary
-
-| Status | Count |
-| --- | ---: |
-| PASS | 6 |
-| WARNING | 0 |
-| FAIL | 0 |
-
-## Recommendations
-
-- All checks passed. No action needed.
-```
-
-After injecting missing emails:
-
-```markdown
-## Summary
-
-| Status | Count |
-| --- | ---: |
-| PASS | 5 |
-| WARNING | 0 |
-| FAIL | 1 |
-
-## Recommendations
-
-- **null_emails** (FAIL): Backfill missing customer emails or remove invalid customer records.
-```
-
 ## What I Learned
 
-The most useful part of this project for me was connecting generation, loading, and validation in one workflow.
+V2 pushed me to think more clearly about how validation rules should be defined and maintained.
 
 A few things that stood out:
 
-- A successful load does not automatically mean the data is valid.
-- Relationship checks matter, especially when row counts look fine.
-- It helps to deliberately break the data and confirm your checks catch the issue.
-- A simple Markdown report is enough to make results easy to review.
+- Moving rules into YAML made the project easier to extend and explain.
+- Schema drift is a useful check, not just row counts or null values.
+- Breaking the data on purpose is still one of the best ways to test validation.
+- A simple Markdown report with overall status and key findings is enough to make results useful.
 
 ## Future Improvements
 
-If I continue building on this project, I would likely add:
+If I keep building on this project, I would likely add:
 
-- duplicate primary key checks
-- schema drift detection
+- duplicate primary key checks driven by the YAML config
 - payment total vs. order item reconciliation
 - JSON export for CI use
-- basic tests around the validation logic
+- basic tests around validation logic
+- support for running multiple break scenarios in one pipeline execution
 
 ## Project Structure
 
 ```text
 pipelineguard/
+├── config/
+│   └── validation_rules.yml
 ├── pipeline/
 │   ├── config.py
 │   ├── db.py
@@ -245,6 +289,7 @@ pipelineguard/
 │   └── 02_reset_tables.sql
 ├── data/generated/
 ├── reports/
+├── docs/
 ├── docker-compose.yml
 ├── requirements.txt
 └── .env.example
@@ -252,4 +297,4 @@ pipelineguard/
 
 ---
 
-Portfolio project focused on synthetic relational data, PostgreSQL, and basic data quality validation.
+Portfolio project focused on synthetic relational data, PostgreSQL, and practical data quality validation.
