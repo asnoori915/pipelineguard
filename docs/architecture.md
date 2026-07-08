@@ -1,28 +1,28 @@
-# PipelineGuard V2 Architecture
+# PipelineGuard Architecture
 
-PipelineGuard is a small data quality pipeline built around PostgreSQL. Each step has a clear job, and the workflow runs in order from data generation to reporting.
-
-V2 adds config-driven validation, schema drift detection, and a clearer quality report.
+PipelineGuard is a small data quality pipeline built around PostgreSQL. Each step has a clear job, and the workflow runs from data generation through validation, reporting, and optional analytics modeling with dbt.
 
 ## End-to-End Flow
 
 ```text
 Synthetic Data Generator
         ↓
-CSV files
+PostgreSQL Raw Tables
         ↓
-PostgreSQL Loader
+Data Break Simulator (optional)
         ↓
-Optional Data Break Simulator
+Python Validation Engine
         ↓
-Config-Driven Validation Engine
+Quality Reports + Audit Tables
         ↓
-Schema Drift Detection
+dbt Staging Models
         ↓
-Markdown Quality Report
+dbt Mart Models
+        ↓
+dbt Tests
 ```
 
-In practice, schema drift detection runs as part of the validation engine. It is shown separately here because it is one of the main additions in V2.
+The dbt layer is optional. It runs after the Python pipeline when `--run-dbt` is provided or when dbt is run manually.
 
 ## Component Overview
 
@@ -34,25 +34,15 @@ Creates clean, relationally valid synthetic data for a simple e-commerce schema.
 
 Foreign keys are respected during generation so orders reference real customers, order items reference real orders and products, and payments reference real orders.
 
-### CSV Files
-
-**Location:** `data/generated/`
-
-These files are the handoff point between generation and loading. Each table gets its own CSV file, which makes the pipeline easy to inspect and rerun.
-
-Example files:
-
-- `customers.csv`
-- `products.csv`
-- `orders.csv`
-- `order_items.csv`
-- `payments.csv`
-
-### PostgreSQL Loader
+### PostgreSQL Raw Tables
 
 **Module:** `pipeline/load_data.py`
 
-Loads the generated CSV files into PostgreSQL. Before loading, it runs `sql/02_reset_tables.sql` to clear existing data and drops `staging_orders` if it exists from a previous run.
+Loads generated CSV files into PostgreSQL raw tables in the `public` schema. Before loading, it:
+
+- runs `sql/02_reset_tables.sql` to clear existing data
+- drops `staging_orders` if it exists
+- removes simulator artifacts such as `legacy_customer_code`
 
 Tables are loaded in dependency order:
 
@@ -64,7 +54,7 @@ Tables are loaded in dependency order:
 
 Database connection settings come from `.env` through `pipeline/config.py` and `pipeline/db.py`.
 
-### Optional Data Break Simulator
+### Data Break Simulator
 
 **Module:** `pipeline/break_data.py`
 
@@ -78,37 +68,25 @@ Supported break types:
 - `broken_foreign_keys`
 - `schema_drift`
 
-This step is optional. In a normal clean run, the pipeline skips it. When enabled, it helps demonstrate how validation catches real-world problems.
+This step is optional. In a normal clean run, the pipeline skips it.
 
 #### How `staging_orders` is used for broken foreign key simulation
 
-The main `orders` table is protected by PostgreSQL foreign key constraints. That means invalid customer references cannot be inserted directly without disabling constraints or changing the schema.
+The main `orders` table is protected by PostgreSQL foreign key constraints. Instead of breaking those tables directly, the simulator creates a separate `staging_orders` table without foreign keys and loads invalid customer references there.
 
-Instead, the break simulator creates a separate `staging_orders` table without foreign keys and loads rows that reference a non-existent `customer_id`.
-
-Validation then checks `staging_orders` with a SQL join to find broken relationships. This keeps the demo realistic while leaving the main tables intact.
-
-Each pipeline run starts clean because the loader drops `staging_orders` before reloading data.
+Validation checks `staging_orders` with SQL joins to find broken relationships.
 
 #### How schema drift simulation works
 
-The `schema_drift` break adds an unexpected column to a table, such as:
+The `schema_drift` break adds an unexpected column such as `legacy_customer_code` to `customers`. Validation compares actual PostgreSQL columns against `required_columns` in `config/validation_rules.yml` and reports a **WARNING** for extra columns.
 
-```sql
-ALTER TABLE customers ADD COLUMN IF NOT EXISTS legacy_customer_code TEXT;
-```
-
-Validation compares the actual PostgreSQL columns against the `required_columns` listed in `config/validation_rules.yml`.
-
-If the table contains extra columns that are not in the config, validation returns a **WARNING**. If required columns are missing, validation returns a **FAIL**.
-
-### Config-Driven Validation Engine
+### Python Validation Engine
 
 **Module:** `pipeline/validate_data.py`
 
 **Config:** `config/validation_rules.yml`
 
-Validation rules are loaded from YAML instead of being hardcoded in Python. That file defines:
+Validation rules are loaded from YAML. That file defines:
 
 - expected table names
 - minimum row counts
@@ -126,85 +104,147 @@ Each check returns:
 - details
 - recommendation
 
-Current checks include row counts, null emails, negative payments, future order dates, invalid foreign key references, and schema drift.
+Current checks include row counts, schema drift, null emails, negative payments, future order dates, and invalid foreign key references.
 
 #### Why config-driven validation is useful
 
-In real data engineering work, validation rules often change over time. Thresholds get adjusted, new columns are added, and teams want checks that are easy to review without digging through application code.
+Validation rules often change over time. Using YAML keeps the rules easier to read, update, and explain without changing Python code for every rule adjustment.
 
-Using a YAML config makes the rules:
+### Quality Reports + Audit Tables
 
-- easier to read
-- easier to update
-- easier to explain in documentation or interviews
+**Modules:** `pipeline/generate_report.py`, `pipeline/audit.py`
 
-It also mirrors how many teams separate pipeline logic from validation configuration.
+After validation, PipelineGuard writes:
 
-### Schema Drift Detection
+- `reports/quality_report.md`
+- `reports/quality_report.json`
 
-Schema drift detection compares each table's actual PostgreSQL columns against the `required_columns` in `config/validation_rules.yml`.
+It also saves run history to PostgreSQL:
 
-Results:
+- `quality_runs` — one row per pipeline run
+- `quality_check_results` — one row per validation check
 
-- **PASS** when the schema matches exactly
-- **WARNING** when there are unexpected extra columns
-- **FAIL** when required columns are missing
+This gives both human-readable reports and queryable audit history.
 
-This helps catch cases where a database changed but the expected schema did not.
+### dbt Staging Models
 
-### Markdown Quality Report
+**Project:** `dbt_pipelineguard/models/staging/`
 
-**Module:** `pipeline/generate_report.py`
+dbt reads from the raw `public` schema tables and builds staging views in the `analytics` schema.
 
-Uses the validation results to create `reports/quality_report.md`.
+Examples:
 
-The report includes:
+- `stg_customers`
+- `stg_products`
+- `stg_orders`
+- `stg_order_items`
+- `stg_payments`
 
-- title and run timestamp
-- overall status
-- summary counts for total checks, passed, warnings, and failed
-- a full table of check results
-- a **Key Findings** section for warnings and failures
-- a short guide on how to interpret the report
+Staging models apply light SQL transformations such as casts, simple flags like `is_paid`, and calculated fields like `line_total`.
+
+### dbt Mart Models
+
+**Project:** `dbt_pipelineguard/models/marts/`
+
+Mart models are materialized as tables and built from staging models.
+
+Examples:
+
+- `fact_orders` — one row per order with totals and payment info
+- `customer_order_summary` — one row per customer with order and spend metrics
+- `payment_quality_summary` — payment quality metrics in one summary row
+
+These models turn raw operational data into analytics-ready datasets.
+
+### dbt Tests
+
+**Project:** `dbt_pipelineguard/models/sources/`, `staging/`, and `marts/`
+
+dbt tests add another layer of checks during transformation.
+
+They include:
+
+- `not_null` and `unique` on primary keys
+- `not_null` on important foreign keys
+- `relationships` between staging models
+- `accepted_values` for order and payment statuses
+- basic mart tests on key summary columns
+
+## How dbt Adds Value
+
+dbt complements the Python validation engine in three main ways:
+
+### SQL transformation
+
+dbt handles the SQL layer for cleaning and preparing data after it lands in PostgreSQL. Staging models document how raw tables are transformed before analytics use.
+
+### Analytics modeling
+
+Mart models create reusable business tables such as order facts and customer summaries. This makes downstream analysis easier than querying raw tables directly.
+
+### Additional data tests
+
+Python validation focuses on pipeline-level quality checks and reporting. dbt adds transformation-time tests that confirm keys, relationships, and expected values still hold during modeling.
+
+Together, the two layers check data at different points:
+
+- Python validation asks whether the loaded dataset is usable
+- dbt tests ask whether the transformed analytics models are trustworthy
 
 ## Orchestration
 
 **Module:** `pipeline/main.py`
 
-Runs the full workflow from one command:
+Run the Python pipeline:
 
 ```bash
 python -m pipeline.main
 ```
 
-You can also inject a data break before validation:
+Run with a data break:
 
 ```bash
 python -m pipeline.main --break missing_emails
 python -m pipeline.main --break schema_drift
 ```
 
+Run the full pipeline plus dbt:
+
+```bash
+python -m pipeline.main --run-dbt
+```
+
+Run dbt manually:
+
+```bash
+python -m pipeline.run_dbt --all
+```
+
 ## How This Relates to Real Data Engineering Workflows
 
-PipelineGuard is simplified, but it follows a pattern that shows up in real projects:
+PipelineGuard follows a simplified version of a common pattern:
 
-1. **Generate or ingest data** into a staging area
-2. **Load it into a database**
-3. **Validate structure and quality**
-4. **Report issues before downstream use**
+1. **Generate or ingest data**
+2. **Load raw tables**
+3. **Validate quality**
+4. **Store audit history and reports**
+5. **Transform data for analytics**
+6. **Test transformed models**
 
-In production systems, those steps might involve orchestration tools, dbt tests, Great Expectations, or custom SQL checks. PipelineGuard keeps the same idea on a smaller scale:
+In production systems, these steps may span ingestion tools, orchestration, dbt projects, and custom validation frameworks. PipelineGuard keeps the same ideas on a smaller scale:
 
 - synthetic data stands in for source data
-- PostgreSQL stands in for the warehouse or operational database
-- YAML config stands in for maintainable validation rules
-- the break simulator stands in for bad upstream changes or load errors
-- the Markdown report stands in for data quality monitoring output
+- PostgreSQL holds both raw and analytics layers
+- Python validation stands in for pipeline quality checks
+- audit tables stand in for run history
+- dbt stands in for analytics modeling and transformation tests
 
-The goal is not to replicate an enterprise platform. It is to practice the workflow of checking data before trusting it.
+The goal is not to replicate an enterprise platform. It is to practice how raw data, validation, and analytics modeling fit together.
 
 ## Infrastructure
 
 PostgreSQL runs in Docker Compose. Table creation scripts live in `sql/01_create_tables.sql` and are applied automatically when the database container starts.
 
-Validation rules live in `config/validation_rules.yml` and are read at runtime by the validation engine.
+Validation rules live in `config/validation_rules.yml`.
+
+The dbt project lives in `dbt_pipelineguard/` and uses the `pipelineguard` profile.
