@@ -62,39 +62,69 @@ def check_row_counts(engine, rules: dict) -> dict:
     return _make_result("row_counts", "all", status, details, recommendation)
 
 
-def check_required_columns(engine, rules: dict) -> dict:
+def _get_table_columns(conn, table_name: str) -> set[str]:
+    columns = conn.execute(
+        text(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = 'public'
+              AND table_name = :table_name
+            """
+        ),
+        {"table_name": table_name},
+    ).scalars().all()
+    return set(columns)
+
+
+def check_schema_drift(engine, rules: dict) -> list[dict]:
+    """Compare each table's actual columns against required_columns in the config."""
     tables = rules["tables"]
-    missing_columns = []
+    results = []
 
     with engine.connect() as conn:
         for table_name, table_rules in tables.items():
-            existing_columns = conn.execute(
-                text(
-                    """
-                    SELECT column_name
-                    FROM information_schema.columns
-                    WHERE table_schema = 'public'
-                      AND table_name = :table_name
-                    """
-                ),
-                {"table_name": table_name},
-            ).scalars().all()
-            existing_column_set = set(existing_columns)
+            expected_columns = set(table_rules["required_columns"])
+            actual_columns = _get_table_columns(conn, table_name)
 
-            for column_name in table_rules["required_columns"]:
-                if column_name not in existing_column_set:
-                    missing_columns.append(f"{table_name}.{column_name}")
+            missing_columns = sorted(expected_columns - actual_columns)
+            extra_columns = sorted(actual_columns - expected_columns)
 
-    if missing_columns:
-        details = "Missing required columns: " + ", ".join(missing_columns)
-        status = "FAIL"
-        recommendation = "Update the database schema so all required columns exist."
-    else:
-        details = "All required columns exist for configured tables."
-        status = "PASS"
-        recommendation = "No action needed."
+            if missing_columns:
+                status = "FAIL"
+                detail_parts = [
+                    f"missing required columns: {', '.join(missing_columns)}"
+                ]
+                if extra_columns:
+                    detail_parts.append(
+                        f"unexpected extra columns: {', '.join(extra_columns)}"
+                    )
+                details = "; ".join(detail_parts)
+                recommendation = (
+                    "Update the database schema so all required columns exist."
+                )
+            elif extra_columns:
+                status = "WARNING"
+                details = f"unexpected extra columns: {', '.join(extra_columns)}"
+                recommendation = (
+                    "Review extra columns and update validation_rules.yml if they are expected."
+                )
+            else:
+                status = "PASS"
+                details = "Schema matches required_columns."
+                recommendation = "No action needed."
 
-    return _make_result("required_columns", "all", status, details, recommendation)
+            results.append(
+                _make_result(
+                    "schema_drift",
+                    table_name,
+                    status,
+                    details,
+                    recommendation,
+                )
+            )
+
+    return results
 
 
 def check_null_emails(engine, rules: dict) -> dict:
@@ -307,17 +337,17 @@ def run_all_checks(engine=None, rules: dict | None = None) -> list[dict]:
     if rules is None:
         rules = load_validation_rules()
 
-    checks = [
-        check_row_counts,
-        check_required_columns,
-        check_null_emails,
-        check_negative_payment_amounts,
-        check_future_order_dates,
-        check_invalid_order_customer_references,
-        check_invalid_payment_order_references,
+    results = [
+        check_row_counts(engine, rules),
+        *check_schema_drift(engine, rules),
+        check_null_emails(engine, rules),
+        check_negative_payment_amounts(engine, rules),
+        check_future_order_dates(engine, rules),
+        check_invalid_order_customer_references(engine, rules),
+        check_invalid_payment_order_references(engine, rules),
     ]
 
-    return [check(engine, rules) for check in checks]
+    return results
 
 
 def print_results(results: list[dict]) -> None:
