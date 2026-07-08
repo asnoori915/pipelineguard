@@ -8,3 +8,7 @@ reports/*.md
 .DS_Store
 .vscode/
 .idea/
+# dbt generated artifacts
+dbt_pipelineguard/target/
+dbt_pipelineguard/logs/
+dbt_pipelineguard/dbt_packages/
