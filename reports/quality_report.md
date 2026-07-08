@@ -1,19 +1,19 @@
 # PipelineGuard Data Quality Report
 
-**Run timestamp:** 2026-07-08 13:32:40
+**Run timestamp:** 2026-07-08 13:40:38
 
 ## Overall Status
 
-**PASS**
+**FAIL**
 
 ## Summary
 
 | Metric | Count |
 | --- | ---: |
 | Total checks | 11 |
-| Passed | 11 |
+| Passed | 10 |
 | Warnings | 0 |
-| Failed | 0 |
+| Failed | 1 |
 
 ## Check Results
 
@@ -26,14 +26,15 @@
 | schema_drift | order_items | PASS | Schema matches required_columns. | No action needed. |
 | schema_drift | payments | PASS | Schema matches required_columns. | No action needed. |
 | null_emails | customers | PASS | 0 of 500 customers (0.0%) have null email; allowed threshold is 5.0% | No action needed. |
-| negative_payment_amounts | payments | PASS | 0 rows with negative amount | No action needed. |
+| negative_payment_amounts | payments | FAIL | 25 rows with negative amount | Correct negative payment amounts or remove invalid payment records. |
 | future_order_dates | orders | PASS | 0 orders have a future order_date | No action needed. |
 | invalid_order_customer_references | staging_orders | PASS | staging_orders does not exist; no staging foreign key issues found | No action needed. |
 | invalid_payment_order_references | payments | PASS | 0 payments reference a missing order_id | No action needed. |
 
 ## Key Findings
 
-- No warnings or failures were found.
+- **negative_payment_amounts** (FAIL) on `payments`: 25 rows with negative amount
+  - Recommendation: Correct negative payment amounts or remove invalid payment records.
 
 ## How to Interpret This Report
 

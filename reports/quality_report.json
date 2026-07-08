@@ -1,11 +1,11 @@
 {
-  "run_timestamp": "2026-07-08 13:32:40",
-  "overall_status": "PASS",
+  "run_timestamp": "2026-07-08 13:40:38",
+  "overall_status": "FAIL",
   "summary": {
     "total_checks": 11,
-    "passed": 11,
+    "passed": 10,
     "warnings": 0,
-    "failed": 0
+    "failed": 1
   },
   "validation_results": [
     {
@@ -60,9 +60,9 @@
     {
       "check_name": "negative_payment_amounts",
       "table": "payments",
-      "status": "PASS",
-      "details": "0 rows with negative amount",
-      "recommendation": "No action needed."
+      "status": "FAIL",
+      "details": "25 rows with negative amount",
+      "recommendation": "Correct negative payment amounts or remove invalid payment records."
     },
     {
       "check_name": "future_order_dates",
